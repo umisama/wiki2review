@@ -6,10 +6,6 @@ import (
 	"io/ioutil"
 )
 
-func Test( src string ) string {
-	return "A"
-}
-
 func outputUsage() {
 	fmt.Printf("usage : %s [input-file]", os.Args[0])
 	return
