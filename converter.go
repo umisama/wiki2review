@@ -30,27 +30,37 @@ func (c *Converter) GetResult() string {
 func (c *Converter) DoConvert() error {
 	// call converter functions
 	// please custom for partial converting
-	funclist := [](func() error){
+	funclist_outer := [](func() error){
 		c.convertSection,
+		c.convertYoutube,
+		c.convertAmazon,
+	}
+
+	funclist_inner := [](func() error) {
+		c.convertLink,
+		c.convertColor,
 		c.convertBoldString,
 		c.convertUnderline,
 		c.convertDelete,
-		c.convertYoutube,
-		c.convertAmazon,
-		c.convertLink,
-		c.convertColor,
 	}
 
 	if c.IsDone {
 		return nil
 	}
 
-	// do convert
 	c.buf = c.Src
-	for _, fn := range funclist {
+	// convert inner attr
+	for _, fn := range funclist_inner {
 		err := fn()
 		if err != nil {
-			print(err.Error())
+			return err
+		}
+	}
+
+	// convert outer attr
+	for _, fn := range funclist_outer {
+		err := fn()
+		if err != nil {
 			return err
 		}
 	}

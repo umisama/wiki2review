@@ -1,9 +1,9 @@
 package main
 
 import (
-	"os"
 	"fmt"
 	"io/ioutil"
+	"os"
 )
 
 func outputUsage() {
@@ -11,16 +11,16 @@ func outputUsage() {
 	return
 }
 
-func GetStringsFromFile( path string ) string {
-	f, err := os.Open( path )
+func GetStringsFromFile(path string) string {
+	f, err := os.Open(path)
 	if err != nil {
-		fmt.Printf( err.Error() )
+		fmt.Printf(err.Error())
 		return ""
 	}
 
-	buf, err := ioutil.ReadAll( f )
+	buf, err := ioutil.ReadAll(f)
 	if err != nil {
-		fmt.Printf( err.Error() )
+		fmt.Printf(err.Error())
 		return ""
 	}
 
@@ -35,11 +35,14 @@ func main() {
 
 	src := GetStringsFromFile(os.Args[1])
 
-	cvtr := NewConverter( src )
+	cvtr := NewConverter(src)
 	if cvtr == nil {
 		return
 	}
 
-	cvtr.DoConvert()
-	fmt.Print( cvtr.GetResult() )
+	err := cvtr.DoConvert()
+	if err != nil {
+		return
+	}
+	fmt.Print(cvtr.GetResult())
 }
