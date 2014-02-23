@@ -2,9 +2,12 @@ package main
 
 import (
 	"fmt"
+	log "github.com/umisama/golog"
 	"io/ioutil"
 	"os"
 )
+
+var logger log.Logger
 
 func outputUsage() {
 	fmt.Printf("usage : %s [input-file]", os.Args[0])
@@ -28,13 +31,13 @@ func GetStringsFromFile(path string) string {
 }
 
 func main() {
+	logger, _ := log.NewLogger(os.Stdout, log.TIME_FORMAT_MILLISEC, log.LOG_FORMAT_POWERFUL, log.LogLevel_Debug )
 	if len(os.Args) <= 1 {
 		outputUsage()
 		return
 	}
 
 	src := GetStringsFromFile(os.Args[1])
-
 	cvtr := NewConverter(src)
 	if cvtr == nil {
 		return
@@ -42,6 +45,7 @@ func main() {
 
 	err := cvtr.DoConvert()
 	if err != nil {
+		logger.Debug(err)
 		return
 	}
 	fmt.Print(cvtr.GetResult())
