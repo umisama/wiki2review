@@ -37,6 +37,7 @@ func (c *Converter) DoConvert() error {
 	}
 
 	funclist_inner := [](func() error) {
+		c.convertSize,
 		c.convertLink,
 		c.convertColor,
 		c.convertBoldString,
@@ -93,6 +94,16 @@ func (c *Converter) convertSection() (err error) {
 
 	c.buf = result
 
+	return
+}
+
+// convertBoldString() converts wiki style bold string("bold") to ReVIEW style(@<b>{"bold"})
+func (c *Converter) convertSize() (err error) {
+	fnConv := func(src string) string {
+		comment := regexp.MustCompile(`\{(.*)}(;*)`).FindString(src)
+		return "@<b>{" + strings.Trim( strings.Trim(comment, "{''"), "''};") + "}"
+	}
+	c.buf, err = simpleReplacer(`&size(.*){(.*)}(;*)`, c.buf, fnConv)
 	return
 }
 
