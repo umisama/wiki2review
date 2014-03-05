@@ -36,7 +36,7 @@ func (c *Converter) DoConvert() error {
 		c.convertAmazon,
 	}
 
-	funclist_inner := [](func() error) {
+	funclist_inner := [](func() error){
 		c.convertSize,
 		c.convertLink,
 		c.convertColor,
@@ -101,7 +101,7 @@ func (c *Converter) convertSection() (err error) {
 func (c *Converter) convertSize() (err error) {
 	fnConv := func(src string) string {
 		comment := regexp.MustCompile(`\{(.*)}(;*)`).FindString(src)
-		return "@<b>{" + strings.Trim( strings.Trim(comment, "{''"), "''};") + "}"
+		return "@<b>{" + strings.Trim(strings.Trim(comment, "{''"), "''};") + "}"
 	}
 	c.buf, err = simpleReplacer(`&size(.*){(.*)}(;*)`, c.buf, fnConv)
 	return
@@ -110,10 +110,10 @@ func (c *Converter) convertSize() (err error) {
 // convertBoldString() converts wiki style bold string("bold") to ReVIEW style(@<b>{"bold"})
 func (c *Converter) convertBoldString() (err error) {
 	fnConv := func(src string) string {
-		return "@<b>{" + strings.Trim(src, "\"") + "}"
+		return "@<b>{" + strings.Trim(strings.Trim(src, "\""), "''") + "}"
 	}
 
-	c.buf, err = simpleReplacer(`\".*\"`, c.buf, fnConv)
+	c.buf, err = simpleReplacer(`(\"|'').*(\"|'')`, c.buf, fnConv)
 	return
 }
 
@@ -190,7 +190,7 @@ func (c *Converter) convertColor() (err error) {
 	return
 }
 
-func (c *Converter) convertColorByHEX()(err error) {
+func (c *Converter) convertColorByHEX() (err error) {
 	fnConv := func(src string) string {
 		color := regexp.MustCompile(`#([0-9a-fA-F]{6})`).FindString(src)
 		comment := regexp.MustCompile(`\{(.*)}(;*)`).FindString(src)
@@ -201,14 +201,14 @@ func (c *Converter) convertColorByHEX()(err error) {
 	return
 }
 
-func (c *Converter) convertColorByName()(err error) {
+func (c *Converter) convertColorByName() (err error) {
 	fnConv := func(src string) string {
-		color := regexp.MustCompile(`red|Red|blue|Blue|green|Green`).FindString(src)
+		color := regexp.MustCompile(`Teal|teal|Navy|navy|red|Red|blue|Blue|green|Green`).FindString(src)
 		comment := regexp.MustCompile(`{(.*)}(;*)`).FindString(src)
 		return "@<color:" + color + ">{" + strings.Trim(strings.Trim(comment, "{''"), "''};") + "}"
 	}
 
-	c.buf, err = simpleReplacer(`&color\((red|Red|blue|Blue|green|Green)\){(.*)}(;*)`, c.buf, fnConv)
+	c.buf, err = simpleReplacer(`&color\((Teal|teal|Navy|navy|red|Red|blue|Blue|green|Green)\){(.*)}(;*)`, c.buf, fnConv)
 	return
 }
 
