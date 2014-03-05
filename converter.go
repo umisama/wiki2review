@@ -170,13 +170,34 @@ func (c *Converter) convertLink() (err error) {
 
 // convertColor() converts wiki style link(#color(#**){***}) to custom ReVIEW style
 func (c *Converter) convertColor() (err error) {
+	err = c.convertColorByHEX()
+	if err != nil {
+		return
+	}
+
+	err = c.convertColorByName()
+	return
+}
+
+func (c *Converter) convertColorByHEX()(err error) {
 	fnConv := func(src string) string {
 		color := regexp.MustCompile(`#([0-9a-fA-F]{6})`).FindString(src)
-		comment := regexp.MustCompile(`\{''.*''};`).FindString(src)
+		comment := regexp.MustCompile(`\{(.*)}(;*)`).FindString(src)
 		return "@<color:" + color + ">{" + strings.Trim(strings.Trim(comment, "{''"), "''};") + "}"
 	}
 
-	c.buf, err = simpleReplacer(`#color\(#(.*)\){(.*)}`, c.buf, fnConv)
+	c.buf, err = simpleReplacer(`&color\(#(.*)\){(.*)}(;*)`, c.buf, fnConv)
+	return
+}
+
+func (c *Converter) convertColorByName()(err error) {
+	fnConv := func(src string) string {
+		color := regexp.MustCompile(`red|Red|blue|Blue|green|Green`).FindString(src)
+		comment := regexp.MustCompile(`{(.*)}(;*)`).FindString(src)
+		return "@<color:" + color + ">{" + strings.Trim(strings.Trim(comment, "{''"), "''};") + "}"
+	}
+
+	c.buf, err = simpleReplacer(`&color\((red|Red|blue|Blue|green|Green)\){(.*)}(;*)`, c.buf, fnConv)
 	return
 }
 
