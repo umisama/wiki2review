@@ -203,12 +203,12 @@ func (c *Converter) convertColorByHEX() (err error) {
 
 func (c *Converter) convertColorByName() (err error) {
 	fnConv := func(src string) string {
-		color := regexp.MustCompile(`Blue|blue|Lime|lime|Teal|teal|Navy|navy|red|Red|blue|Blue|green|Green`).FindString(src)
+		color := regexp.MustCompile(`Fuchsia|fuchsia|Lime|lime|Teal|teal|Navy|navy|red|Red|blue|Blue|green|Green`).FindString(src)
 		comment := regexp.MustCompile(`{(.*)}(;*)`).FindString(src)
 		return "@<color:" + color + ">{" + strings.Trim(strings.Trim(comment, "{''"), "''};") + "}"
 	}
 
-	c.buf, err = simpleReplacer(`&color\((Blue|blue|Lime|lime|Teal|teal|Navy|navy|red|Red|blue|Blue|green|Green)\){(.*)}(;*)`, c.buf, fnConv)
+	c.buf, err = simpleReplacer(`&color\((Fuchsia|fuchsia|Lime|lime|Teal|teal|Navy|navy|red|Red|blue|Blue|green|Green)\){(.*)}(;*)`, c.buf, fnConv)
 	return
 }
 
