@@ -142,6 +142,10 @@ func (c *Converter) convertYoutube() (err error) {
 	fnConv := func(src string) string {
 		keyword := "watch?v="
 
+		if strings.Index(src, keyword) == -1 {
+			keyword := "youtube.com/v/"
+		}
+
 		// get video-id stringrange
 		start := strings.Index(src, keyword) + len(keyword)
 		end := len(src) - 1
