@@ -76,7 +76,7 @@ func (c *Converter) DoConvert() error {
 func (c *Converter) convertSection() (err error) {
 	fnConv := func(src string) (ret string) {
 		for i := 0; i < len(src); i++ {
-			ret += "#" // replace * to #
+			ret += "=" // replace * to #
 		}
 		return
 	}
