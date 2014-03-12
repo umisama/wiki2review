@@ -1,8 +1,14 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"regexp"
 	"strings"
+)
+
+var (
+	ErrParsingError = errors.New("parsing error")
 )
 
 type Converter struct {
@@ -34,15 +40,18 @@ func (c *Converter) DoConvert() error {
 		c.convertSection,
 		c.convertYoutube,
 		c.convertAmazon,
+		c.convertTildeNl,
 	}
 
 	funclist_inner := [](func() error){
+	//	c.convertTripleComma,
 		c.convertSize,
 		c.convertLink,
 		c.convertColor,
-		c.convertBoldString,
 		c.convertUnderline,
 		c.convertDelete,
+		c.convertImg,
+		c.convertBoldString,
 	}
 
 	if c.IsDone {
@@ -82,7 +91,7 @@ func (c *Converter) convertSection() (err error) {
 	}
 
 	result := ""
-	for _, line := range strings.Split(c.buf, "\n") {
+	for _, line := range strings.Split(c.buf, "\r\n") { // CR+LF? LF only?
 		conv_line, ierr := simpleReplacer(`^\*+`, line, fnConv)
 		if ierr != nil {
 			err = ierr
@@ -100,20 +109,20 @@ func (c *Converter) convertSection() (err error) {
 // convertBoldString() converts wiki style bold string("bold") to ReVIEW style(@<b>{"bold"})
 func (c *Converter) convertSize() (err error) {
 	fnConv := func(src string) string {
-		comment := regexp.MustCompile(`\{(.*)}(;*)`).FindString(src)
-		return "@<b>{" + strings.Trim(strings.Trim(comment, "{''"), "''};") + "}"
+		comment := regexp.MustCompile(`\{(.*?)}(;*)`).FindString(src)
+		return "@<b>{" + strings.Trim(comment, "\"'{};") + "}"
 	}
-	c.buf, err = simpleReplacer(`&size(.*){(.*)}(;*)`, c.buf, fnConv)
+	c.buf, err = simpleReplacer(`&size(.*?){(.*?)}(;*)`, c.buf, fnConv)
 	return
 }
 
 // convertBoldString() converts wiki style bold string("bold") to ReVIEW style(@<b>{"bold"})
 func (c *Converter) convertBoldString() (err error) {
 	fnConv := func(src string) string {
-		return "@<b>{" + strings.Trim(strings.Trim(src, "\""), "''") + "}"
+		return "@<b>{" + strings.Trim(src, "'") + "}"
 	}
 
-	c.buf, err = simpleReplacer(`(\"|'').*(\"|'')`, c.buf, fnConv)
+	c.buf, err = simpleReplacer(`(\"|'').*?(\"|'')`, c.buf, fnConv)
 	return
 }
 
@@ -123,7 +132,7 @@ func (c *Converter) convertUnderline() (err error) {
 		return "@<u>{" + strings.Trim(src, "%") + "}"
 	}
 
-	c.buf, err = simpleReplacer(`%%%.*%%%`, c.buf, fnConv)
+	c.buf, err = simpleReplacer(`%%%.*?%%%`, c.buf, fnConv)
 	return
 }
 
@@ -133,7 +142,7 @@ func (c *Converter) convertDelete() (err error) {
 		return "@<del>{" + strings.Trim(src, "%") + "}"
 	}
 
-	c.buf, err = simpleReplacer(`%%.*%%`, c.buf, fnConv)
+	c.buf, err = simpleReplacer(`%%.*?%%`, c.buf, fnConv)
 	return
 }
 
@@ -143,7 +152,7 @@ func (c *Converter) convertYoutube() (err error) {
 		keyword := "watch?v="
 
 		if strings.Index(src, keyword) == -1 {
-			keyword := "youtube.com/v/"
+			keyword = "youtube.com/v/"
 		}
 
 		// get video-id stringrange
@@ -153,33 +162,70 @@ func (c *Converter) convertYoutube() (err error) {
 		return "@<href>{youtube://video/" + src[start:end] + "}"
 	}
 
-	c.buf, err = simpleReplacer(`#youtube(.*)`, c.buf, fnConv)
+	c.buf, err = simpleReplacer(`#youtube\((.*?)\)`, c.buf, fnConv)
 	return
 }
 
 // convertAmazon() converts wiki style amazon link(#amazon()) to ReVIEW style(@<link> with amazon:// url scheme)
 func (c *Converter) convertAmazon() (err error) {
 	fnConv := func(src string) string {
-		keyword := "http://"
+		keyword := "/dp/"
 
 		// get video-id stringrange
 		start := strings.Index(src, keyword) + len(keyword)
 		end := len(src) - 1
 
-		return "@<link>{amazon://" + src[start:end] + "}"
+		return "@<href>{amazon://dp/" + src[start:end] + "}"
 	}
 
-	c.buf, err = simpleReplacer(`#amazon(.*)`, c.buf, fnConv)
+	c.buf, err = simpleReplacer(`#amazon\((.*?)\)`, c.buf, fnConv)
 	return
 }
 
 // convertLink() converts wiki style link(#link() to ReVIEW style(@<link>)
 func (c *Converter) convertLink() (err error) {
-	fnConv := func(src string) string {
-		return "@<href>{" + strings.Trim(strings.Trim(src, "#link("), ")") + "}"
+	err = c.convertLinkWithHashLink()
+	if err != nil {
+		return
 	}
 
-	c.buf, err = simpleReplacer(`#link(.*)`, c.buf, fnConv)
+	err = c.convertLinkWithLinkString()
+	return
+}
+
+func (c *Converter) convertLinkWithHashLink() (err error) {
+	fnConv := func(src string) string {
+		paramstr := strings.TrimFunc(regexp.MustCompile(`\((.*?)\)`).FindString(src), trimmer)
+		params := strings.Split(paramstr, ",")
+
+		if len(params) == 2 {
+			// attachment
+			return fmt.Sprintf("@<href>{attachment://id/%s}", params[0])
+		}
+
+		// simple link
+		return fmt.Sprintf("@<href>{%s}", params[0])
+	}
+
+	c.buf, err = simpleReplacer(`#link\((.*?)\)`, c.buf, fnConv)
+	return
+}
+
+func (c *Converter) convertLinkWithLinkString() (err error) {
+	regexp_url := `https?://[\w/:%#\$&\?\(\)~\.=\+\-]+`
+
+	fnConv := func(src string) string {
+		if regexp.MustCompile("{" + regexp_url + "}").MatchString(src) {
+			return src
+		}
+		if strings.Index(src, "amazon.") != -1 || strings.Index(src, "youtube.") != -1 {
+			return src
+		}
+
+		return fmt.Sprintf("@<href>{%s}", src)
+	}
+
+	c.buf, err = simpleReplacer("({*)"+regexp_url+"(}*)", c.buf, fnConv)
 	return
 }
 
@@ -197,22 +243,65 @@ func (c *Converter) convertColor() (err error) {
 func (c *Converter) convertColorByHEX() (err error) {
 	fnConv := func(src string) string {
 		color := regexp.MustCompile(`#([0-9a-fA-F]{6})`).FindString(src)
-		comment := regexp.MustCompile(`\{(.*)}(;*)`).FindString(src)
-		return "@<color:" + color + ">{" + strings.Trim(strings.Trim(comment, "{''"), "''};") + "}"
+		comment := regexp.MustCompile(`\{(.*?)(}+)`).FindString(src)
+
+		nested := strings.Count(comment, "}")		// support for nested elements(ex:testcase 3)
+
+		return "@<color:" + color + ">{" + strings.Trim(comment, "{}'") + strings.Repeat("}", nested)
 	}
 
-	c.buf, err = simpleReplacer(`&color\(#(.*)\){(.*)}(;*)`, c.buf, fnConv)
+	c.buf, err = simpleReplacer(`&color\(#(.*?)\){(.*?)}((}|;)*)`, c.buf, fnConv)
 	return
 }
 
 func (c *Converter) convertColorByName() (err error) {
+	colors := `(Fuchsia|fuchsia|Lime|lime|Teal|teal|Navy|navy|red|Red|blue|Blue|green|Green)`
 	fnConv := func(src string) string {
-		color := regexp.MustCompile(`Fuchsia|fuchsia|Lime|lime|Teal|teal|Navy|navy|red|Red|blue|Blue|green|Green`).FindString(src)
-		comment := regexp.MustCompile(`{(.*)}(;*)`).FindString(src)
-		return "@<color:" + color + ">{" + strings.Trim(strings.Trim(comment, "{''"), "''};") + "}"
+		color := regexp.MustCompile(colors).FindString(src)
+		comment := regexp.MustCompile(`{(.*?)(}+)`).FindString(src)
+
+		nested := strings.Count(comment, "}")		// support for nested elements(ex:testcase 3)
+
+		return "@<color:" + color + ">{" + strings.Trim(comment, "{}'") + strings.Repeat("}", nested)
 	}
 
-	c.buf, err = simpleReplacer(`&color\((Fuchsia|fuchsia|Lime|lime|Teal|teal|Navy|navy|red|Red|blue|Blue|green|Green)\){(.*)}(;*)`, c.buf, fnConv)
+	c.buf, err = simpleReplacer(`&color\(`+colors+`\){(.*?)}((}|;)*)`, c.buf, fnConv)
+	return
+}
+
+func (c *Converter) convertImg() (err error) {
+	fnConv := func(src string) string {
+		paramstr := strings.TrimFunc(regexp.MustCompile(`\((.*?)\)`).FindString(src), trimmer)
+		params := strings.Split(paramstr, ",")
+
+		if len(params) >= 3 {
+			return fmt.Sprintf("@<href>{image://attachment/%s/%s?width=%s}", params[0], params[1], params[2])
+		} else if len(params) >= 2 {
+			return fmt.Sprintf("@<href>{image://attachment/%s/%s}", params[0], params[1])
+		}
+
+		panic("error")
+	}
+
+	c.buf, err = simpleReplacer(`#img\((.*?)\)`, c.buf, fnConv)
+	return
+}
+
+func (c *Converter) convertTildeNl() (err error) {
+	fnConv := func(src string) string {
+		return "\n"
+	}
+
+	c.buf, err = simpleReplacer("~\n", c.buf, fnConv)
+	return
+}
+
+func (c *Converter) convertTripleComma() (err error) {
+	fnConv := func(src string) string {
+		return "'"
+	}
+
+	c.buf, err = simpleReplacer(`'''`, c.buf, fnConv)
 	return
 }
 
@@ -224,6 +313,14 @@ func simpleReplacer(reg string, src string, callback func(string) string) (ret s
 	}
 
 	ret = r.ReplaceAllStringFunc(src, callback)
-
 	return
+}
+
+func trimmer(t rune) bool {
+	switch t {
+	case '{', '}', '\'', '(', ')':
+		return true
+	}
+
+	return false
 }
